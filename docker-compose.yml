@@ -1,0 +1,17 @@
+version: '3.9'
+
+services:
+  app:
+    build: .
+    container_name: app
+    env_file:
+      - .env
+    ports:
+      - '8000:80'
+    restart: always
+    networks:
+      - billion-network
+
+networks:
+  billion-network:
+    driver: bridge

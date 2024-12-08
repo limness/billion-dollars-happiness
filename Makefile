@@ -1,26 +1,31 @@
-VERSION := 0.0.0
-PYTHON_VERSION := C:\Users\cirkunov\AppData\Local\Programs\Python\Python311\python.exe
+PYTHON_VERSION := 3.12
+POETRY := $(shell command -v poetry 2> /dev/null)
+INSTALL_STAMP := .install.stamp
 
 
 .PHONY: run
-uvicorn: venv requirements
-	poetry run uvicorn --reload --log-level=info --workers 2 --host 0.0.0.0 --port 8000 server.api:app
+uvicorn: install
+	poetry run uvicorn --reload --log-level=info --workers 2 --host 0.0.0.0 --port 8000 app.main:app
 
-venv:
-	pip install jsonschema==4.17.3 poetry
-	poetry env use ${PYTHON_VERSION}
 
-.PHONY: pre
-pre:
-	poetry run ruff . --fix
-	poetry run isort . --profile black
-	poetry run black . --skip-string-normalization --line-length=120
-
-.PHONY: requirements
-requirements: venv
+install: $(INSTALL_STAMP)
+$(INSTALL_STAMP): pyproject.toml
+	$(POETRY) run pip install --upgrade pip setuptools
 	poetry install
+	touch $(INSTALL_STAMP)
 
-.PHONY: clean
-clean:
-	poetry env remove ${PYTHON_VERSION}
-	rm -rf dist
+
+docker-run:
+	docker-compose up
+
+
+docker-run-depends:
+	docker-compose up --scale app=0
+
+
+docker-migrate:
+	docker compose exec app bash -c "poetry run alembic upgrade head"
+
+
+docker-bash:
+	docker compose run --rm app bash
