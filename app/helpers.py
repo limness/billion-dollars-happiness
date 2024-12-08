@@ -15,7 +15,7 @@ def extremes_window(arr: list, window: int, until_profit: int) -> tuple:
     using sliding window
 
     Returns:
-    Two arrays max and min
+        Two arrays max and min
     """
     indexes_max = []
     indexes_min = []
@@ -58,8 +58,6 @@ def get_patterns(
     """
     max_indexes, min_indexes = extremes_window(close_price, extr_window, until_profit)
 
-    # print('max_indexes', max_indexes)
-    # print('min_indexes', min_indexes)
     # Iterate on the indices of maxs and mins. If after N (until_profit) bars the profit
     # has reached the desired one - refer the index to the pattern cluster
     pattern_indexes = [
@@ -71,8 +69,6 @@ def get_patterns(
         for min_index in min_indexes
         if max(close_price[min_index : min_index + until_profit + 1]) - close_price[min_index] > profit_value
     ]
-
-    # print(pattern_indexes)
 
     # Form the patterns themselves. Go through the indices
     # and get the backward window (of size pattern_size)
@@ -108,8 +104,8 @@ def get_apn(a: list, b: list) -> tuple:
     """
     # use first element as anchor and generate array
     anchors = [np.mean(a, axis=0)] * len(a)
-    positives = a.copy()  ## np.random.choice(a, size=1, replace=False)  #
-    negatives = b.copy()  # np.random.choice(b, size=len(a))  #, replace=False)
+    positives = a.copy()
+    negatives = b.copy()
 
     # fix seed before shuffling
     os.environ['PYTHONHASHSEED'] = str(1300)
@@ -132,18 +128,23 @@ def get_triplets(patterns: list, no_patterns: list) -> np.array:
     for training the Siamese network
 
     Returns:
-    Tuple A, P, N
+        Tuple A, P, N
     """
     p_anchors, p_positives, p_negatives = get_apn(patterns, no_patterns)
-
     np_anchors, np_positives, np_negatives = get_apn(no_patterns, patterns)
+
+    assert p_anchors.shape[0] == p_positives.shape[0] == p_negatives.shape[0]
+    assert np_anchors.shape[0] == np_positives.shape[0] == np_negatives.shape[0]
 
     anchors = np.concatenate((p_anchors, np_anchors))
     positives = np.concatenate((p_positives, np_positives))
     negatives = np.concatenate((p_negatives, np_negatives))
 
+    targets = np.array([1] * p_anchors.shape[0] + [0] * np_anchors.shape[0])
+    targets = targets.reshape((targets.shape[0], 1))
+
     # sample shape should be the same
-    assert anchors.shape[0] == positives.shape[0] == negatives.shape[0]
+    assert anchors.shape[0] == positives.shape[0] == negatives.shape[0] == targets.shape[0]
 
     # fix seed before shuffling
     np.random.seed(1300)
@@ -157,11 +158,21 @@ def get_triplets(patterns: list, no_patterns: list) -> np.array:
     anchors = anchors[indices]
     positives = positives[indices]
     negatives = negatives[indices]
+    targets = targets[indices]
 
-    return np.stack((anchors, positives, negatives))
+    return np.stack((anchors, positives, negatives)), targets
 
 
 def distance_function(x: np.array, y: np.array) -> float:
+    """
+    Calculates cos distance between vectors
+    Args:
+        x: Vector One
+        y: Vector Two
+
+    Returns:
+        Cos distance
+    """
     return 1.0 - F.cosine_similarity(x, y)
 
 
@@ -206,6 +217,15 @@ def get_validation_outputs(
 
 
 def load_dataset_from_file(path: str, index_format: str) -> pd.DataFrame:
+    """
+    Loads dataset using datetime as an index
+    Args:
+        path: Path to dataframe
+        index_format: Datetime index format
+
+    Returns:
+        Pandas Dataframe
+    """
     df = pd.read_csv(path, index_col="Datetime")
     df.index = pd.to_datetime(df.index, format=index_format)
     df = df.fillna(method='ffill')
@@ -214,51 +234,51 @@ def load_dataset_from_file(path: str, index_format: str) -> pd.DataFrame:
 
 
 def featurized(df) -> pd.DataFrame:
-    # hyperparams = toml.load("hyperparams.toml")
+    """
+    Converts source dataframe into features
+    Args:
+        df: Source dataframe (Open, High, Low, Close (XAU, DXY, TNX, GVZ))
 
-    # df = load_dataset_from_file("input/15minData.csv", index_format=None)
-    # df = df.fillna(method='ffill')
-    # df = df.dropna()
-    # print(df)
+    Returns:
+        Features for prediction
+    """
+    df = df.rename(
+        columns={'xau_open': 'open', 'xau_close': 'close', 'xau_high': 'high', 'xau_low': 'low', 'xau_volume': 'volume'}
+    )
 
-    # generate features
-    # features = df.rename(columns={'Volume': 'GC_Volume', 'Close': 'GC_Close'})
-    # features = df.rename(
-    #     columns={
-    #         "xau_Open": "xau_Open",
-    #         "xau_High": "xau_High",
-    #         "xau_Low": "xau_Low",
-    #         "xau_close": "xau_close",
-    #         "xau_Volume": "xau_Volume"
-    #     }
-    # )
-    features = df
+    df = df.rename(
+        columns={
+            'Volume': 'gc_volume',
+            'Close': 'gc_close',
+            'Open': "gc_open",
+            'GVZ_Open': "gvz_open",
+            'GVZ_High': "gvz_high",
+            'GVZ_Low': "gvz_low",
+            'GVZ_Close': "gvz_close",
+            'TNX_Open': "tnx_open",
+            'TNX_High': "tnx_high",
+            'TNX_Low': "tnx_low",
+            'TNX_Close': "tnx_close",
+            'DXY_Open': "dxy_open",
+            'DXY_High': "dxy_high",
+            'DXY_Low': "dxy_low",
+            'DXY_Close': "dxy_close",
+        }
+    )
 
-    features['xau_co'] = features['xau_close'] - features['xau_open']
-    features['xau_vd'] = features['xau_volume'].diff()
+    df['GC_CO'] = df['gc_close'] - df['gc_open']
+    df['GC_VD'] = df['gc_volume'].diff()
 
-    features['gvz_co'] = features['gvz_close'] - features['gvz_open']
-    features['tnx_co'] = features['tnx_close'] - features['tnx_open']
-    features['dxy_co'] = features['dxy_close'] - features['dxy_open']
+    df['GVZ_CO'] = df['gvz_close'] - df['gvz_open']
+    df['TNX_CO'] = df['tnx_close'] - df['tnx_open']
+    df['DXY_CO'] = df['dxy_close'] - df['dxy_open']
 
-    # features['GC_HL'] = features['High'] - features['Low']
-    # features['GVZ_HL'] = features['GVZ_High'] - features['GVZ_Low']
-    # features['TNX_HL'] = features['TNX_High'] - features['TNX_Low']
-    # features['DXY_HL'] = features['DXY_High'] - features['DXY_Low']
+    df['GVZ_Close'] = df['gvz_close'].diff()
+    df['TNX_Close'] = df['tnx_close'].diff()
+    df['DXY_Close'] = df['dxy_close'].diff()
 
-    features = features[
-        [
-            'xau_close',
-            'xau_co',
-            'xau_volume',
-            'xau_vd',
-            'gvz_close',
-            'gvz_co',
-            'tnx_close',
-            'tnx_co',
-            'dxy_close',
-            'dxy_co',
-        ]
+    df = df[
+        ['gc_close', 'gc_volume', 'GC_VD', 'GC_CO', 'GVZ_Close', 'GVZ_CO', 'TNX_Close', 'TNX_CO', 'DXY_Close', 'DXY_CO']
     ]
-    features = features.fillna(0)
-    return features
+    df = df.fillna(0)
+    return df

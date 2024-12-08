@@ -4,8 +4,8 @@ services:
   app:
     build: .
     container_name: app
-    env_file:
-      - .env
+#    env_file:
+#      - .env
     ports:
       - '8000:80'
     restart: always

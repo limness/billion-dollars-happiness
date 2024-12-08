@@ -14,9 +14,7 @@ RUN pip install poetry \
     && poetry install --only main
 
 # Copy application code and required files
-ADD alembic.ini .
-ADD alembic ./alembic
-ADD app ./app
+ADD client ./client
 
 # Add entrypoint.sh and grant execution permissions
 ADD entrypoint.sh .
