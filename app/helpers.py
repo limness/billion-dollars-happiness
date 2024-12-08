@@ -247,7 +247,18 @@ def featurized(df) -> pd.DataFrame:
     # features['DXY_HL'] = features['DXY_High'] - features['DXY_Low']
 
     features = features[
-        ['xau_close', 'xau_co', 'xau_volume', 'xau_vd', 'gvz_close', 'gvz_co', 'tnx_close', 'tnx_co', 'dxy_close', 'dxy_co']
+        [
+            'xau_close',
+            'xau_co',
+            'xau_volume',
+            'xau_vd',
+            'gvz_close',
+            'gvz_co',
+            'tnx_close',
+            'tnx_co',
+            'dxy_close',
+            'dxy_co',
+        ]
     ]
     features = features.fillna(0)
     return features

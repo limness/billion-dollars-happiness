@@ -1,7 +1,7 @@
 import os.path
 
-import torch
 import joblib
+import torch
 import numpy as np
 from sklearn.preprocessing import StandardScaler
 
